@@ -1,5 +1,5 @@
-name: Build Android APK
-
+- name: Build Android App
+  uses: sparkfabrik/android-build-action@v1.5.0
 on:
   push:
     branches: [ main, develop ]
