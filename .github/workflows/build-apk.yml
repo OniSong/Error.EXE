@@ -1,37 +1,12 @@
-name: Build Debug APK
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-
       - name: Sanitize and Fix Gradlew
-        # This is the "magic" line that fixes your line 160 error
+        # This strips the hidden carriage returns (\r) that cause the syntax error
         run: |
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
 
       - name: Build debug APK
-        # We use the pre-installed Android SDK on the runner
         run: ./gradlew assembleDebug --no-daemon
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+        
