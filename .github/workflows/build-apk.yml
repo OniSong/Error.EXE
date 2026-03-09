@@ -65,11 +65,58 @@ jobs:
           javac -version
         shell: bash
 
+      - name: Fix gradlew line endings, shebang, and permissions
+        run: |
+          set -euo pipefail
+          if [ -f gradlew ]; then
+            echo "Found gradlew, examining and fixing line endings/shebang/permissions..."
+            # Remove CRLF if present
+            sed -i 's/\r$//' gradlew
+            # Ensure shebang is correct
+            head -n 1 gradlew | grep -q '^#!' || {
+              echo "Adding shebang to gradlew"
+              sed -i '1i #!/usr/bin/env bash' gradlew
+            }
+            # Replace a wrong shebang with a portable one
+            sed -i '1s|^#!.*|#!/usr/bin/env bash|' gradlew
+            # Ensure executable
+            chmod +x gradlew || true
+            echo "gradlew head (first 8 lines):"
+            sed -n '1,8p' gradlew || true
+            echo "File mode:"
+            ls -l gradlew || true
+          else
+            echo "gradlew not found in repo root. Skipping gradlew fix step."
+          fi
+        shell: bash
+
+      - name: Debug gradlew (if errors persist)
+        if: failure()
+        run: |
+          set -euo pipefail
+          echo "===== gradlew diagnostics ====="
+          [ -f gradlew ] || { echo "gradlew missing"; exit 0; }
+          echo "Path: $(pwd)/gradlew"
+          ls -l gradlew || true
+          file gradlew || true
+          echo "Head (first 20 lines):"
+          sed -n '1,20p' gradlew || true
+          echo "Lines 140-180:"
+          sed -n '140,180p' gradlew || true
+          echo "Has CRLF? (prints 'CRLF' if true):"
+          if grep -q $'\r' gradlew; then echo "CRLF detected"; else echo "LF only"; fi
+        shell: bash
+
       - name: Verify Gradle wrapper executable (run with bash)
         run: |
           set -euo pipefail
-          chmod +x ./gradlew || true
-          bash -lc "./gradlew -v"
+          # Explicitly run with bash to avoid /bin/sh dash parsing issues
+          if [ -f gradlew ]; then
+            bash ./gradlew -v
+          else
+            echo "gradlew not found; attempting to run 'gradle -v' if gradle is installed"
+            gradle -v || true
+          fi
         shell: bash
 
       - name: Build debug APK (run with bash)
@@ -77,9 +124,15 @@ jobs:
           JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           set -euo pipefail
-          # Ensure Gradle sees the SDK at RUNNER_TEMP
           export ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
-          bash -lc "./gradlew assembleDebug --no-daemon"
+          echo "Using ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
+          # Ensure gradlew uses bash interpreter
+          if [ -f gradlew ]; then
+            bash ./gradlew assembleDebug --no-daemon
+          else
+            echo "gradlew not found - cannot build with wrapper. You may need to include the Gradle wrapper in the repo."
+            exit 1
+          fi
         shell: bash
 
       - name: Upload APK artifact
