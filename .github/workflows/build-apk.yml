@@ -1,0 +1,52 @@
+name: Build Debug APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_HOME: /usr/lib/jvm/adoptopenjdk-17-hotspot
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Accept Android SDK licenses
+        run: |
+          mkdir -p "$HOME/.android"
+          yes | sdkmanager --licenses || true
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.tool_cache }}/android-sdk
+
+      - name: Install Android SDK tools and required components
+        uses: reactivecircus/android-emulator-runner@v3
+        with:
+          api-level: 33
+          target: default
+          arch: x86_64
+          force-avd-creation: false
+
+      - name: Verify Gradle wrapper executable
+        run: |
+          chmod +x ./gradlew || true
+          ./gradlew -v
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.tool_cache }}/android-sdk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
