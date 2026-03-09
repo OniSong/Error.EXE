@@ -36,6 +36,7 @@ jobs:
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
       - name: Ensure gradlew is valid and build APK (assembleDebug)
+        id: gradle_build_step
         run: |
           # Make wrapper executable and normalize line endings to LF
           chmod +x ./gradlew
@@ -50,8 +51,8 @@ jobs:
           bash ./gradlew assembleDebug --no-daemon
         working-directory: .
 
-      - name: Find APK path
-        id: find_apk
+      - name: Find APK path (primary)
+        id: find_apk_primary
         run: |
           set -e
           APK_PATH=$(find . -type f -name "*-debug.apk" | head -n 1 || true)
@@ -61,31 +62,8 @@ jobs:
           fi
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Upload APK as artifact
+      - name: Upload APK as artifact (primary)
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: ${{ steps.find_apk.outputs.apk_path }}
-      - name: Grant execute to gradlew
-        run: chmod +x ./gradlew
-
-      - name: Build APK (assembleDebug)
-        run: ./gradlew assembleDebug --no-daemon
-        working-directory: .
-
-      - name: Find APK path
-        id: find_apk
-        run: |
-          set -e
-          APK_PATH=$(find . -type f -name "*-debug.apk" | head -n 1 || true)
-          if [ -z "$APK_PATH" ]; then
-            echo "No debug APK found in repository after build." >&2
-            exit 1
-          fi
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-
-      - name: Upload APK as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: ${{ steps.find_apk.outputs.apk_path }}
+          path: ${{ steps.find_apk_primary.outputs.apk_path }}
