@@ -20,14 +20,14 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Fix Line Endings and Permissions
-        # This fixes the "redirection unexpected" error caused by mobile/Windows line endings
+      - name: Sanitize and Fix Gradlew
+        # This is the "magic" line that fixes your line 160 error
         run: |
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
 
       - name: Build debug APK
-        # GitHub's runner already has the Android SDK pre-installed
+        # We use the pre-installed Android SDK on the runner
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
