@@ -1,4 +1,4 @@
-name: Build Debug APK and Upload to Supabase
+name: Build Debug APK
 
 on:
   push:
@@ -31,8 +31,8 @@ jobs:
           wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O cmdline-tools.zip
           unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
           mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          echo "export ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" >> $GITHUB_ENV
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
       - name: Grant execute to gradlew
@@ -46,7 +46,6 @@ jobs:
         id: find_apk
         run: |
           set -e
-          # Typical debug APK location; adjust if your module/path differs
           APK_PATH=$(find . -type f -name "*-debug.apk" | head -n 1 || true)
           if [ -z "$APK_PATH" ]; then
             echo "No debug APK found in repository after build." >&2
@@ -59,15 +58,3 @@ jobs:
         with:
           name: debug-apk
           path: ${{ steps.find_apk.outputs.apk_path }}
-
-      - name: Upload APK to Supabase (optional)
-        if: secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != ''
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          APK_PATH: ${{ steps.find_apk.outputs.apk_path }}
-        run: |
-          node --version
-          npm --version || true
-          # Ensure script is executable and run it
-          node .github/scripts/upload-to-supabase.js "$APK_PATH"
