@@ -1,0 +1,73 @@
+name: Build Debug APK and Upload to Supabase
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK command-line tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y unzip wget
+          ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          cd /tmp
+          wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          echo "export ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" >> $GITHUB_ENV
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Grant execute to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build APK (assembleDebug)
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: .
+
+      - name: Find APK path
+        id: find_apk
+        run: |
+          set -e
+          # Typical debug APK location; adjust if your module/path differs
+          APK_PATH=$(find . -type f -name "*-debug.apk" | head -n 1 || true)
+          if [ -z "$APK_PATH" ]; then
+            echo "No debug APK found in repository after build." >&2
+            exit 1
+          fi
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
+
+      - name: Upload APK to Supabase (optional)
+        if: secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != ''
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APK_PATH: ${{ steps.find_apk.outputs.apk_path }}
+        run: |
+          node --version
+          npm --version || true
+          # Ensure script is executable and run it
+          node .github/scripts/upload-to-supabase.js "$APK_PATH"
