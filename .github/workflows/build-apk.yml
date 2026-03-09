@@ -13,9 +13,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # Use a per-run temp directory for Android SDK to avoid permission / cache issues
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
 
     steps:
       - name: Checkout repo
@@ -29,33 +26,33 @@ jobs:
 
       - name: Install Android SDK command-line tools and components
         env:
-          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
           JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           set -euo pipefail
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          # Use the runner-provided temp directory
+          ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
           cd "$HOME"
           echo "Downloading Android commandline tools..."
           curl -sSfL "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip" -o cmdline-tools.zip
           unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          # Some cmdline-tools zips create cmdline-tools/cmdline-tools — normalize to 'latest'
           if [ -d "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" ]; then
             mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           else
-            # if already correct layout, place a 'latest' symlink for sdkmanager
             ln -sfn "$ANDROID_SDK_ROOT/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest" || true
           fi
           rm -f cmdline-tools.zip
           export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
           echo "y" | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses || true
           sdkmanager --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-          echo "Installed SDK components"
+          echo "Installed SDK components to ${ANDROID_SDK_ROOT}"
         shell: bash
 
       - name: Create local.properties
         run: |
           set -euo pipefail
+          ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
           echo "sdk.dir=${ANDROID_SDK_ROOT}" > local.properties
           echo "Created local.properties:"
           cat local.properties
@@ -72,16 +69,16 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x ./gradlew || true
-          # Force bash to run the wrapper to avoid dash/sh interpreting bash-style redirections
           bash -lc "./gradlew -v"
         shell: bash
 
       - name: Build debug APK (run with bash)
         env:
-          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
           JAVA_HOME: ${{ env.JAVA_HOME }}
         run: |
           set -euo pipefail
+          # Ensure Gradle sees the SDK at RUNNER_TEMP
+          export ANDROID_SDK_ROOT="$RUNNER_TEMP/android-sdk"
           bash -lc "./gradlew assembleDebug --no-daemon"
         shell: bash
 
