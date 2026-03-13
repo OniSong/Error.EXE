@@ -9,8 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      GRADLE_OPTS: -Dorg.gradle.daemon=false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,32 +18,34 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-          cache: 'gradle'
 
-      - name: Build APK with Auto-Wrapper Fix
+      - name: Force Repair and Build
         run: |
+          # 1. Ensure directories exist
           mkdir -p gradle/wrapper
-          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
-            curl -L -o gradle/wrapper/gradle-wrapper.jar \
-            https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
-          fi
-          sed -i 's/\r$//' gradlew
+          
+          # 2. Download a guaranteed fresh Wrapper JAR
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
+          
+          # 3. Download a guaranteed fresh gradlew shell script
+          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
+          
+          # 4. Fix permissions and line endings
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          sed -i 's/\r$//' gradlew
+          
+          # 5. RUN THE BUILD (added --info to see exactly what happens)
+          ./gradlew assembleDebug --info --stacktrace
 
-      - name: Find APK path
+      - name: Find and Upload APK
         id: find_apk
         run: |
-          # Search everywhere for the debug apk
-          APK_PATH=$(find . -type f -name "*-debug.apk" | grep -v "intermediates" | head -n 1)
-          
+          APK_PATH=$(find . -type f -name "*.apk" | grep -v "intermediates" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "❌ ERROR: No APK was generated. Listing directory for debug:"
+            echo "❌ Still no APK. Printing full logs for debug:"
             ls -R
             exit 1
           fi
-          
-          echo "✅ Found APK at: $APK_PATH"
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
       - name: Upload APK
