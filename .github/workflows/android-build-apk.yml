@@ -21,15 +21,17 @@ jobs:
 
       - name: Force Repair and Build
         run: |
-          # 1. Strip the dead JVM settings again
+          # 1. Strip the dead JVM settings
           if [ -f "gradle.properties" ]; then
             sed -i '/MaxPermSize/d' gradle.properties
           fi
 
-          # 2. Repair common repository syntax errors in build.gradle
-          # This ensures 'google()' and 'mavenCentral()' are properly formatted
-          sed -i 's/repository {/repositories {/g' build.gradle
-          sed -i 's/jcenter()/mavenCentral()/g' build.gradle
+          # 2. Fix the Repository Conflict (Crucial Step)
+          # We comment out the repositories block in build.gradle to let settings.gradle lead
+          if [ -f "build.gradle" ]; then
+            sed -i 's/google()/\/\/google()/g' build.gradle
+            sed -i 's/mavenCentral()/\/\/mavenCentral()/g' build.gradle
+          fi
 
           # 3. Create Wrapper structure
           mkdir -p gradle/wrapper
@@ -49,7 +51,7 @@ jobs:
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
           
-          # 5. Build - Using --stacktrace to see the EXACT line of the error if it fails
+          # 5. Build
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Find and Upload APK
