@@ -17,26 +17,38 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: 'gradle'
 
       - name: Basic Build
         run: |
-          # 1. Clear any corrupted local wrapper files
-          rm -rf gradle/wrapper
+          # 1. Create the necessary Wrapper directory
           mkdir -p gradle/wrapper
           
-          # 2. Generate a fresh, official Gradle 8.12.1 Wrapper
-          # This ensures the environment matches official documentation
+          # 2. Generate the properties file (the missing piece)
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.12.1-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+          
+          # 3. Download official runner files
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
           chmod +x gradlew
           
-          # 3. Clean and Build
-          # We use --no-daemon to prevent memory issues in the runner
+          # 4. Fix line endings (critical for files downloaded via curl)
+          sed -i 's/\r$//' gradlew
+          
+          # 5. Clean and Build
           ./gradlew clean assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: "**/*.apk"
           
