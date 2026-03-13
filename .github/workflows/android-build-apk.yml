@@ -21,10 +21,13 @@ jobs:
 
       - name: Basic Build
         run: |
-          # 1. Create the necessary Wrapper directory
+          # 1. Strip the ancient MaxPermSize setting that causes the crash
+          if [ -f "gradle.properties" ]; then
+            sed -i '/MaxPermSize/d' gradle.properties
+          fi
+
+          # 2. Re-create the necessary Wrapper directory and properties
           mkdir -p gradle/wrapper
-          
-          # 2. Generate the properties file (the missing piece)
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -37,18 +40,5 @@ jobs:
           
           # 3. Download official runner files
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
-          chmod +x gradlew
-          
-          # 4. Fix line endings (critical for files downloaded via curl)
-          sed -i 's/\r$//' gradlew
-          
-          # 5. Clean and Build
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: "**/*.apk"
+          curl -L -o gradlew
           
