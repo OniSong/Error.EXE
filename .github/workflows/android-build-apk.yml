@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 
 env:
+  # This clears the Node.js 20 warning
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -19,19 +20,22 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+          # Removed cache to prevent the Path Validation Error
 
       - name: Build APK
         run: |
-          # Ensure gradlew is executable
-          chmod +x gradlew
-          # Fix line endings if edited on mobile/Windows
+          # Fix line endings (important if you edit on a phone)
           sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          # Force the build and show errors if it fails
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload Artifact
+        if: always() # This runs even if the build fails so you can see why
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: prototype-apk
+          # This search pattern finds the APK no matter where it is hidden
+          path: "**/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error
           
