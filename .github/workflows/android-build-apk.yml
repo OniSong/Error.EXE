@@ -19,12 +19,17 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Force Repair Gradle and Build
+      - name: Force Repair and Build
         run: |
-          # 1. Create the directory structure
+          # 1. Fix the outdated gradle.properties (Remove MaxPermSize)
+          if [ -f "gradle.properties" ]; then
+            sed -i '/MaxPermSize/d' gradle.properties
+          fi
+
+          # 2. Create Wrapper directory
           mkdir -p gradle/wrapper
           
-          # 2. Generate the missing properties file (Targeting Gradle 8.12.1)
+          # 3. Generate fresh properties
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -35,16 +40,16 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
           
-          # 3. Download the official runner files
+          # 4. Download official runner files
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
           
-          # 4. Fix permissions and line endings
+          # 5. Fix permissions and line endings
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
           
-          # 5. Build the APK
-          ./gradlew assembleDebug --stacktrace
+          # 6. Build the APK (forcing no-daemon to save memory)
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Find and Upload APK
         id: find_apk
