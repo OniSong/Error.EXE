@@ -26,12 +26,39 @@ jobs:
             sed -i '/MaxPermSize/d' gradle.properties
           fi
 
-          # 2. Fix the Repository Conflict (Crucial Step)
-          # We comment out the repositories block in build.gradle to let settings.gradle lead
-          if [ -f "build.gradle" ]; then
-            sed -i 's/google()/\/\/google()/g' build.gradle
-            sed -i 's/mavenCentral()/\/\/mavenCentral()/g' build.gradle
-          fi
+          # 2. OVERRIDE REPOSITORIES (The Fix)
+          # We create an init script to force repositories on for EVERYTHING.
+          # This bypasses the "no repositories defined" and "settings vs project" errors.
+          mkdir -p ~/.gradle
+          cat << 'EOF' > ~/.gradle/init.gradle
+          allprojects {
+              buildscript {
+                  repositories {
+                      google()
+                      mavenCentral()
+                  }
+              }
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          settingsEvaluated { settings ->
+              settings.pluginManagement {
+                  repositories {
+                      google()
+                      mavenCentral()
+                  }
+              }
+              settings.dependencyResolutionManagement {
+                  repositoriesMode.set(RepositoriesMode.REPLACE_IF_NOT_SET)
+                  repositories {
+                      google()
+                      mavenCentral()
+                  }
+              }
+          }
+          EOF
 
           # 3. Create Wrapper structure
           mkdir -p gradle/wrapper
@@ -51,8 +78,8 @@ jobs:
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
           
-          # 5. Build
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          # 5. Build - using the init script we just made
+          ./gradlew assembleDebug --init-script ~/.gradle/init.gradle --no-daemon --stacktrace
 
       - name: Find and Upload APK
         id: find_apk
