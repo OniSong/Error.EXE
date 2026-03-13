@@ -19,31 +19,39 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Force Repair and Build
+      - name: Force Repair Gradle and Build
         run: |
-          # 1. Ensure directories exist
+          # 1. Create the directory structure
           mkdir -p gradle/wrapper
           
-          # 2. Download a guaranteed fresh Wrapper JAR
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
+          # 2. Generate the missing properties file (Targeting Gradle 8.12.1)
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.12.1-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
           
-          # 3. Download a guaranteed fresh gradlew shell script
+          # 3. Download the official runner files
+          curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
           
           # 4. Fix permissions and line endings
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
           
-          # 5. RUN THE BUILD (added --info to see exactly what happens)
-          ./gradlew assembleDebug --info --stacktrace
+          # 5. Build the APK
+          ./gradlew assembleDebug --stacktrace
 
       - name: Find and Upload APK
         id: find_apk
         run: |
           APK_PATH=$(find . -type f -name "*.apk" | grep -v "intermediates" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "❌ Still no APK. Printing full logs for debug:"
-            ls -R
+            echo "❌ Build ran but no APK found."
             exit 1
           fi
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
