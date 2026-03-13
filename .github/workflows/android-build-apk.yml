@@ -21,15 +21,21 @@ jobs:
 
       - name: Basic Build
         run: |
-          # 1. Clean up old JVM settings that crash Java 21
+          # 1. Clean up old JVM settings
           if [ -f "gradle.properties" ]; then
             sed -i '/MaxPermSize/d' gradle.properties
           fi
 
-          # 2. Re-create the Wrapper directory
+          # 2. Fix Repository Conflict
+          # This comments out 'google()' and 'mavenCentral()' in build.gradle 
+          # to let the settings.gradle file handle them.
+          if [ -f "build.gradle" ]; then
+            sed -i 's/google()/\/\/google()/g' build.gradle
+            sed -i 's/mavenCentral()/\/\/mavenCentral()/g' build.gradle
+          fi
+
+          # 3. Re-create the Wrapper directory
           mkdir -p gradle/wrapper
-          
-          # 3. Create the properties file so Gradle knows what to download
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -40,16 +46,14 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
           
-          # 4. Download the official wrapper JAR and the execution script
+          # 4. Download official runner files
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
-          
-          # 5. Make gradlew executable and fix line endings for Linux
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
           
-          # 6. Run the build
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          # 5. Clean and Build
+          ./gradlew clean assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
