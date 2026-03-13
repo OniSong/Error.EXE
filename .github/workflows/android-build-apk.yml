@@ -1,9 +1,8 @@
-name: Build Debug APK
+name: Minimal Android Build
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -19,81 +18,25 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Force Repair and Build
+      - name: Basic Build
         run: |
-          # 1. Strip the dead JVM settings
-          if [ -f "gradle.properties" ]; then
-            sed -i '/MaxPermSize/d' gradle.properties
-          fi
-
-          # 2. OVERRIDE REPOSITORIES (The Fix)
-          # We create an init script to force repositories on for EVERYTHING.
-          # This bypasses the "no repositories defined" and "settings vs project" errors.
-          mkdir -p ~/.gradle
-          cat << 'EOF' > ~/.gradle/init.gradle
-          allprojects {
-              buildscript {
-                  repositories {
-                      google()
-                      mavenCentral()
-                  }
-              }
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          settingsEvaluated { settings ->
-              settings.pluginManagement {
-                  repositories {
-                      google()
-                      mavenCentral()
-                  }
-              }
-              settings.dependencyResolutionManagement {
-                  repositoriesMode.set(RepositoriesMode.REPLACE_IF_NOT_SET)
-                  repositories {
-                      google()
-                      mavenCentral()
-                  }
-              }
-          }
-          EOF
-
-          # 3. Create Wrapper structure
+          # 1. Clear any corrupted local wrapper files
+          rm -rf gradle/wrapper
           mkdir -p gradle/wrapper
-          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.12.1-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
           
-          # 4. Grab official runner files
+          # 2. Generate a fresh, official Gradle 8.12.1 Wrapper
+          # This ensures the environment matches official documentation
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
           chmod +x gradlew
-          sed -i 's/\r$//' gradlew
           
-          # 5. Build - using the init script we just made
-          ./gradlew assembleDebug --init-script ~/.gradle/init.gradle --no-daemon --stacktrace
-
-      - name: Find and Upload APK
-        id: find_apk
-        run: |
-          APK_PATH=$(find . -type f -name "*.apk" | grep -v "intermediates" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "❌ Build ran but no APK found."
-            exit 1
-          fi
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          # 3. Clean and Build
+          # We use --no-daemon to prevent memory issues in the runner
+          ./gradlew clean assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: ${{ steps.find_apk.outputs.apk_path }}
+          path: app/build/outputs/apk/debug/*.apk
           
