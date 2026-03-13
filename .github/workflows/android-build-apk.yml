@@ -1,4 +1,4 @@
-name: Build Debug APK
+Name: Build Debug APK
 
 on:
   push:
@@ -15,55 +15,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '17'
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
 
-      - name: Install Android SDK command-line tools
+      - name: Ensure gradlew is valid and build APK
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y unzip wget
-          ANDROID_SDK_ROOT="$HOME/android-sdk"
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          cd /tmp
-          wget https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
-          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH" >> $GITHUB_ENV
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          # Fix line endings and permissions
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          
+          # Run the build
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Ensure gradlew is valid and build APK (assembleDebug)
-        id: gradle_build_step
+      - name: Find APK path
+        id: find_apk
         run: |
-          # Make wrapper executable and normalize line endings to LF
-          chmod +x ./gradlew
-          sed -i 's/\r$//' ./gradlew
-
-          # Print first lines to help debug shebang/contents if something's wrong
-          echo "---- gradlew head (first 10 lines) ----"
-          sed -n '1,10p' ./gradlew || true
-          echo "--------------------------------------"
-
-          # Run using bash explicitly to avoid /bin/sh (dash) syntax issues
-          bash ./gradlew assembleDebug --no-daemon
-        working-directory: .
-
-      - name: Find APK path (primary)
-        id: find_apk_primary
-        run: |
-          set -e
-          APK_PATH=$(find . -type f -name "*-debug.apk" | head -n 1 || true)
+          # Look specifically in the build output folder
+          APK_PATH=$(find app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "No debug APK found in repository after build." >&2
+            echo "Build failed to produce an APK. Check the Gradle logs above." >&2
             exit 1
           fi
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
 
-      - name: Upload APK as artifact (primary)
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: ${{ steps.find_apk_primary.outputs.apk_path }}
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          
