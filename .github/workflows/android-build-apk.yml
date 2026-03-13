@@ -21,13 +21,15 @@ jobs:
 
       - name: Basic Build
         run: |
-          # 1. Strip the ancient MaxPermSize setting that causes the crash
+          # 1. Clean up old JVM settings that crash Java 21
           if [ -f "gradle.properties" ]; then
             sed -i '/MaxPermSize/d' gradle.properties
           fi
 
-          # 2. Re-create the necessary Wrapper directory and properties
+          # 2. Re-create the Wrapper directory
           mkdir -p gradle/wrapper
+          
+          # 3. Create the properties file so Gradle knows what to download
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -38,7 +40,20 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
           
-          # 3. Download official runner files
+          # 4. Download the official wrapper JAR and the execution script
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradlew
+          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
+          
+          # 5. Make gradlew executable and fix line endings for Linux
+          chmod +x gradlew
+          sed -i 's/\r$//' gradlew
+          
+          # 6. Run the build
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: "**/*.apk"
           
