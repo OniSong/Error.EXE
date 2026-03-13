@@ -1,3 +1,24 @@
+name: Minimal Android Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
       - name: Basic Build
         run: |
           # 1. Clean up old JVM settings
@@ -5,7 +26,7 @@
             sed -i '/MaxPermSize/d' gradle.properties
           fi
 
-          # 2. FORCE a correct settings.gradle (Fixes the "No Repositories" error)
+          # 2. FORCE a correct settings.gradle
           cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
@@ -25,13 +46,13 @@
           include ':app'
           EOF
 
-          # 3. Clean up build.gradle so it doesn't conflict with the new settings
+          # 3. Clean up build.gradle conflict
           if [ -f "build.gradle" ]; then
             sed -i 's/google()/\/\/google()/g' build.gradle
             sed -i 's/mavenCentral()/\/\/mavenCentral()/g' build.gradle
           fi
 
-          # 4. Re-create the Wrapper directory and properties
+          # 4. Re-create the Wrapper
           mkdir -p gradle/wrapper
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
@@ -40,15 +61,5 @@
           networkTimeout=10000
           validateDistributionUrl=true
           zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-          
-          # 5. Download official runner files
-          curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
-          curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
-          chmod +x gradlew
-          sed -i 's/\r$//' gradlew
-          
-          # 6. Run the build
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
+          zip
           
