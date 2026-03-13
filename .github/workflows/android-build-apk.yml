@@ -21,15 +21,18 @@ jobs:
 
       - name: Force Repair and Build
         run: |
-          # 1. Fix the outdated gradle.properties (Remove MaxPermSize)
+          # 1. Strip the dead JVM settings again
           if [ -f "gradle.properties" ]; then
             sed -i '/MaxPermSize/d' gradle.properties
           fi
 
-          # 2. Create Wrapper directory
+          # 2. Repair common repository syntax errors in build.gradle
+          # This ensures 'google()' and 'mavenCentral()' are properly formatted
+          sed -i 's/repository {/repositories {/g' build.gradle
+          sed -i 's/jcenter()/mavenCentral()/g' build.gradle
+
+          # 3. Create Wrapper structure
           mkdir -p gradle/wrapper
-          
-          # 3. Generate fresh properties
           cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
@@ -40,15 +43,13 @@ jobs:
           zipStorePath=wrapper/dists
           EOF
           
-          # 4. Download official runner files
+          # 4. Grab official runner files
           curl -L -o gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
           curl -L -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradlew
-          
-          # 5. Fix permissions and line endings
           chmod +x gradlew
           sed -i 's/\r$//' gradlew
           
-          # 6. Build the APK (forcing no-daemon to save memory)
+          # 5. Build - Using --stacktrace to see the EXACT line of the error if it fails
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Find and Upload APK
