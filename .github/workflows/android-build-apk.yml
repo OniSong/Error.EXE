@@ -1,4 +1,4 @@
-Name: Build Debug APK
+name: Build Debug APK
 
 on:
   push:
@@ -22,22 +22,32 @@ jobs:
           java-version: '21'
           cache: 'gradle'
 
-      - name: Ensure gradlew is valid and build APK
+      - name: Build APK with Auto-Wrapper Fix
         run: |
-          # Fix line endings and permissions
+          # 1. Ensure the wrapper directory exists
+          mkdir -p gradle/wrapper
+          
+          # 2. Check for and download the JAR if it's missing
+          if [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            echo "Downloading missing gradle-wrapper.jar..."
+            curl -L -o gradle/wrapper/gradle-wrapper.jar \
+            https://raw.githubusercontent.com/gradle/gradle/v8.12.1/gradle/wrapper/gradle-wrapper.jar
+          fi
+
+          # 3. Fix line endings (crucial when editing on Android) and permissions
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
           
-          # Run the build
+          # 4. Run the actual build
           ./gradlew assembleDebug --stacktrace
 
       - name: Find APK path
         id: find_apk
         run: |
-          # Look specifically in the build output folder
+          # Finds the APK in the standard output directory
           APK_PATH=$(find app/build/outputs/apk/debug -type f -name "*.apk" | head -n 1)
           if [ -z "$APK_PATH" ]; then
-            echo "Build failed to produce an APK. Check the Gradle logs above." >&2
+            echo "Build finished but no APK was found in app/build/outputs/apk/debug" >&2
             exit 1
           fi
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
