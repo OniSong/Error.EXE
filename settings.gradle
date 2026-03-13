@@ -13,3 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "FaitSystemAgent"
+include ':app'
