@@ -1,18 +1,11 @@
-name: Android Build
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-env:
-  # This clears the Node.js 20 warning
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+name: Build Android APK
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -20,22 +13,21 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          # Removed cache to prevent the Path Validation Error
+          cache: gradle
 
       - name: Build APK
         run: |
-          # Fix line endings (important if you edit on a phone)
+          # Fix line endings (critical for edits made on Android devices)
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
-          # Force the build and show errors if it fails
+          # Execute the build
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload Artifact
-        if: always() # This runs even if the build fails so you can see why
         uses: actions/upload-artifact@v4
         with:
-          name: prototype-apk
-          # This search pattern finds the APK no matter where it is hidden
+          name: Error-EXE-Beta
+          # Using a recursive glob pattern to ensure the APK is found regardless of directory structure
           path: "**/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
           
