@@ -1,8 +1,11 @@
 package com.faitapp.core
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
+import android.webkit.MimeTypeMap
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -11,15 +14,234 @@ class FileRegistry(private val context: Context) {
 
     companion object {
         private const val TAG = "FileRegistry"
-        private const val VRM_FILENAME = "avatar.vrm"
+        
+        // Supported VRM file extensions
+        private val SUPPORTED_VRM_EXTENSIONS = setOf(
+            ".vrm",
+            ".glb", 
+            ".gltf",
+            ".vrm.glb"  // Double extension support
+        )
+        
+        // Supported GGUF extensions
+        private val SUPPORTED_GGUF_EXTENSIONS = setOf(".gguf")
+        
+        // MIME types for validation
+        private val SUPPORTED_MIME_TYPES = setOf(
+            "model/gltf-binary",
+            "model/gltf+json",
+            "application/octet-stream"
+        )
+        
         private const val GGUF_FILENAME = "model.gguf"
         private const val PREFS_NAME = "FileRegistryPrefs"
         private const val KEY_VRM_PATH = "vrm_path"
+        private const val KEY_VRM_FILENAME = "vrm_filename"
         private const val KEY_GGUF_PATH = "gguf_path"
         private const val KEY_API_KEY = "api_key"
     }
 
     private val filesDir = context.filesDir
+
+    /**
+     * Extract file extension from filename, supporting double extensions like .vrm.glb
+     * @param filename The filename to extract extension from
+     * @return The extension (e.g., ".vrm.glb", ".glb", ".gltf") or empty string if none
+     */
+    private fun getFileExtension(filename: String): String {
+        return try {
+            val lowerName = filename.lowercase()
+            
+            // Check for double extension first (.vrm.glb)
+            if (lowerName.endsWith(".vrm.glb")) {
+                return ".vrm.glb"
+            }
+            
+            // Check for standard single extensions
+            val lastDotIndex = filename.lastIndexOf('.')
+            if (lastDotIndex > 0 && lastDotIndex < filename.length - 1) {
+                return filename.substring(lastDotIndex).lowercase()
+            }
+            
+            ""
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting file extension: ${e.message}")
+            ""
+        }
+    }
+
+    /**
+     * Extract original filename from URI using ContentResolver
+     * @param uri The URI to extract filename from
+     * @return Original filename or null if unavailable
+     */
+    private fun getOriginalFileName(uri: Uri): String? {
+        return try {
+            var result: String? = null
+            
+            if (uri.scheme == "content") {
+                val cursor: Cursor? = context.contentResolver.query(
+                    uri, null, null, null, null
+                )
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex >= 0) {
+                            result = it.getString(nameIndex)
+                        }
+                    }
+                }
+            }
+            
+            // Fallback to URI path if content resolver fails
+            if (result == null) {
+                result = uri.path
+                val cut = result?.lastIndexOf('/') ?: -1
+                if (cut != -1 && result != null) {
+                    result = result!!.substring(cut + 1)
+                }
+            }
+            
+            Log.d(TAG, "Extracted filename: $result from URI: $uri")
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting original filename: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Validate if file is a supported VRM format
+     * @param filename The filename to validate
+     * @return true if file has supported VRM extension
+     */
+    private fun isValidVrmFile(filename: String): Boolean {
+        val extension = getFileExtension(filename)
+        val isValid = SUPPORTED_VRM_EXTENSIONS.contains(extension)
+        Log.d(TAG, "Validating VRM file: $filename, Extension: $extension, Valid: $isValid")
+        return isValid
+    }
+
+    /**
+     * Validate if file is a supported GGUF format
+     * @param filename The filename to validate
+     * @return true if file has supported GGUF extension
+     */
+    private fun isValidGgufFile(filename: String): Boolean {
+        val extension = getFileExtension(filename)
+        val isValid = SUPPORTED_GGUF_EXTENSIONS.contains(extension)
+        Log.d(TAG, "Validating GGUF file: $filename, Extension: $extension, Valid: $isValid")
+        return isValid
+    }
+
+    /**
+     * Validate MIME type of file
+     * @param uri The URI of the file
+     * @return true if MIME type is supported
+     */
+    private fun isValidMimeType(uri: Uri): Boolean {
+        return try {
+            val mimeType = context.contentResolver.getType(uri)
+            val isValid = mimeType != null && SUPPORTED_MIME_TYPES.contains(mimeType)
+            Log.d(TAG, "MIME type validation: $mimeType, Valid: $isValid")
+            isValid || mimeType == null // Allow null MIME types (fallback to extension check)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error checking MIME type: ${e.message}")
+            true // Allow if MIME check fails (rely on extension)
+        }
+    }
+
+
+    /**
+     * Save a VRM file from URI to internal storage with original filename preservation
+     * Supports .vrm, .glb, .gltf, and .vrm.glb formats
+     * @param uri URI of the file to save
+     * @return Absolute path of saved file or null on failure
+     */
+    fun saveVrmFile(uri: Uri): String? {
+        return try {
+            Log.d(TAG, "Saving VRM file from URI: $uri")
+            
+            // Get original filename
+            val originalName = getOriginalFileName(uri)
+            if (originalName == null) {
+                Log.e(TAG, "Failed to extract filename from URI")
+                return null
+            }
+            
+            // Validate file extension
+            if (!isValidVrmFile(originalName)) {
+                val extension = getFileExtension(originalName)
+                Log.e(TAG, "Invalid VRM file format: $originalName (Extension: $extension)")
+                Log.e(TAG, "Supported formats: ${SUPPORTED_VRM_EXTENSIONS.joinToString(", ")}")
+                return null
+            }
+            
+            // Validate MIME type (optional check)
+            if (!isValidMimeType(uri)) {
+                Log.w(TAG, "MIME type validation failed for: $originalName (proceeding anyway)")
+            }
+            
+            // Save file with original filename
+            val savedPath = saveFileToInternal(uri, originalName)
+            
+            if (savedPath != null) {
+                // Store path and filename in SharedPreferences
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit().apply {
+                    putString(KEY_VRM_PATH, savedPath)
+                    putString(KEY_VRM_FILENAME, originalName)
+                    apply()
+                }
+                Log.d(TAG, "VRM file saved successfully: $savedPath")
+            }
+            
+            savedPath
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving VRM file: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Save a GGUF model file from URI to internal storage
+     * @param uri URI of the GGUF file to save
+     * @return Absolute path of saved file or null on failure
+     */
+    fun saveGgufFile(uri: Uri): String? {
+        return try {
+            Log.d(TAG, "Saving GGUF file from URI: $uri")
+            
+            // Get original filename
+            val originalName = getOriginalFileName(uri)
+            if (originalName == null) {
+                Log.e(TAG, "Failed to extract filename from URI")
+                return null
+            }
+            
+            // Validate file extension
+            if (!isValidGgufFile(originalName)) {
+                val extension = getFileExtension(originalName)
+                Log.e(TAG, "Invalid GGUF file format: $originalName (Extension: $extension)")
+                return null
+            }
+            
+            // Save file with standard GGUF filename
+            val savedPath = saveFileToInternal(uri, GGUF_FILENAME)
+            
+            if (savedPath != null) {
+                // Store path in SharedPreferences
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit().putString(KEY_GGUF_PATH, savedPath).apply()
+                Log.d(TAG, "GGUF file saved successfully: $savedPath")
+            }
+            
+            savedPath
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving GGUF file: ${e.message}", e)
+            null
+        }
+    }
 
     fun saveFileToInternal(uri: Uri, fileName: String): String? {
         return try {
@@ -81,11 +303,51 @@ class FileRegistry(private val context: Context) {
                 Log.d(TAG, "VRM path retrieved: $path")
                 path
             } else {
-                Log.w(TAG, "VRM file not found at stored path")
-                null
+                // Backward compatibility: check for legacy "avatar.vrm" file
+                val legacyFile = File(filesDir, "avatar.vrm")
+                if (legacyFile.exists()) {
+                    Log.d(TAG, "Found legacy VRM file: ${legacyFile.absolutePath}")
+                    // Update preferences with legacy file path
+                    prefs.edit().apply {
+                        putString(KEY_VRM_PATH, legacyFile.absolutePath)
+                        putString(KEY_VRM_FILENAME, "avatar.vrm")
+                        apply()
+                    }
+                    legacyFile.absolutePath
+                } else {
+                    Log.w(TAG, "VRM file not found at stored path")
+                    null
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error retrieving VRM path: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Get the original filename of the saved VRM file
+     * @return Filename (e.g., "FaitProto.vrm.glb") or null if not found
+     */
+    fun getVrmFileName(): String? {
+        return try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val filename = prefs.getString(KEY_VRM_FILENAME, null)
+            
+            if (filename != null) {
+                Log.d(TAG, "VRM filename retrieved: $filename")
+                filename
+            } else {
+                // Backward compatibility: return "avatar.vrm" if legacy file exists
+                val legacyFile = File(filesDir, "avatar.vrm")
+                if (legacyFile.exists()) {
+                    "avatar.vrm"
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error retrieving VRM filename: ${e.message}", e)
             null
         }
     }
