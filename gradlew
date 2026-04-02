@@ -1,5 +1,3 @@
-mkdir -p gradle/wrapper
-cat << 'EOF' > gradlew
 #!/usr/bin/env sh
 
 ##############################################################################
@@ -54,6 +52,3 @@ exec "$JAVACMD" \
     -classpath "$CLASSPATH" \
     org.gradle.wrapper.GradleWrapperMain \
     "$@"
-EOF
-
-chmod +x gradlew
