@@ -174,22 +174,14 @@ class SplashActivity : AppCompatActivity() {
                 window.exitTransition = explodeTransition
             }
             
-            val intent = Intent(this, FaitOverlayService::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            // Navigate to MainActivity for permission and setup flow
+            val intent = Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             }
             
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent)
-                } else {
-                    startService(intent)
-                }
-                Log.d(TAG, "FaitOverlayService started")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error starting FaitOverlayService: ${e.message}")
-            }
-            
+            startActivity(intent)
             finishAfterTransition()
+            
         } catch (e: Exception) {
             Log.e(TAG, "Error triggering shatter: ${e.message}", e)
             finish()

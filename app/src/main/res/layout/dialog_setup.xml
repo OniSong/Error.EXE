@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/dialog_background"
+        android:padding="24dp">
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/setupTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️ INITIAL SYSTEM CONFIGURATION"
+            android:textSize="18sp"
+            android:textColor="#8A2BE2"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Message -->
+        <TextView
+            android:id="@+id/setupMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#CCCCCC"
+            android:fontFamily="monospace"
+            android:lineSpacingMultiplier="1.3"
+            android:layout_marginBottom="24dp" />
+
+        <!-- VRM Upload Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="VRM AVATAR"
+            android:textSize="12sp"
+            android:textColor="#8A2BE2"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/vrmStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="○ Not Set"
+            android:textSize="11sp"
+            android:textColor="#666666"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/uploadVrmButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="UPLOAD VRM FILE"
+            android:textSize="13sp"
+            android:textColor="#00FF00"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:background="@drawable/button_background_primary"
+            android:layout_marginBottom="24dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- GGUF Upload Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="GGUF MODEL (OPTIONAL)"
+            android:textSize="12sp"
+            android:textColor="#8A2BE2"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/ggufStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="○ Optional"
+            android:textSize="11sp"
+            android:textColor="#666666"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/uploadGgufButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="UPLOAD GGUF MODEL"
+            android:textSize="13sp"
+            android:textColor="#8A2BE2"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:background="@drawable/button_background_secondary"
+            android:layout_marginBottom="32dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/skipButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="SKIP"
+                android:textSize="13sp"
+                android:textColor="#666666"
+                android:textStyle="bold"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:background="@drawable/button_background_secondary"
+                android:layout_marginEnd="8dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <TextView
+                android:id="@+id/completeButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="COMPLETE"
+                android:textSize="13sp"
+                android:textColor="#00FF00"
+                android:textStyle="bold"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:background="@drawable/button_background_primary"
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
