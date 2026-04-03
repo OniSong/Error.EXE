@@ -129,6 +129,12 @@ class SplashActivity : AppCompatActivity() {
                             handler.postDelayed(this, TYPEWRITER_DELAY_MS)
                         } else {
                             isAnimating = false
+                            // Auto-proceed after animation completes (2 second delay)
+                            handler.postDelayed({
+                                if (!isFinishing) {
+                                    handleSplashTap()
+                                }
+                            }, 2000)
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error in typewriter effect: ${e.message}")
