@@ -15,11 +15,15 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.faitapp.R
+import com.faitapp.core.FileRegistry
+import io.github.sceneview.SceneView
+import io.github.sceneview.node.ModelNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
 
 class FaitOverlayService : Service() {
 
@@ -31,7 +35,10 @@ class FaitOverlayService : Service() {
 
     private var windowManager: WindowManager? = null
     private var overlayView: FrameLayout? = null
+    private var sceneView: SceneView? = null
+    private var modelNode: ModelNode? = null
     private var speechBubble: TextView? = null
+    private var fileRegistry: FileRegistry? = null
     private val scope = CoroutineScope(Dispatchers.Main)
     private var params: WindowManager.LayoutParams? = null
     private var isInitialized = false
@@ -40,6 +47,10 @@ class FaitOverlayService : Service() {
         super.onCreate()
         try {
             Log.d(TAG, "FaitOverlayService onCreate called")
+            
+            // Initialize FileRegistry
+            fileRegistry = FileRegistry(this)
+            
             createNotificationChannel()
             startForeground(NOTIFICATION_ID, createNotification())
             setupOverlay()
@@ -116,6 +127,8 @@ class FaitOverlayService : Service() {
                 throw e
             }
 
+            // Initialize SceneView for 3D rendering
+            sceneView = overlayView?.findViewById(R.id.scene_view)
             speechBubble = overlayView?.findViewById(R.id.speech_bubble)
 
             params = WindowManager.LayoutParams(
@@ -138,9 +151,79 @@ class FaitOverlayService : Service() {
             windowManager?.addView(overlayView, params)
             Log.d(TAG, "Overlay view added to window manager successfully")
             
+            // Load VRM model after overlay is added
+            loadVrmModel()
+            
         } catch (e: Exception) {
             Log.e(TAG, "Fatal error in setupOverlay: ${e.message}", e)
             throw e
+        }
+    }
+
+    /**
+     * Load VRM model using FileRegistry path
+     * This method pulls the VRM file path from FileRegistry, supporting:
+     * - FaitProto.vrm.glb (double extension)
+     * - character.glb
+     * - model.vrm
+     * - avatar.gltf
+     * - Legacy avatar.vrm (backward compatible)
+     */
+    private fun loadVrmModel() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Starting VRM model loading...")
+                
+                // Get VRM path from FileRegistry (supports all formats including .vrm.glb)
+                val vrmPath = fileRegistry?.getVrmPath()
+                val vrmFilename = fileRegistry?.getVrmFileName()
+                
+                if (vrmPath == null) {
+                    Log.w(TAG, "No VRM file found in FileRegistry")
+                    Log.w(TAG, "Please upload a VRM/GLB/GLTF file first")
+                    return@launch
+                }
+                
+                val vrmFile = File(vrmPath)
+                if (!vrmFile.exists()) {
+                    Log.e(TAG, "VRM file does not exist at path: $vrmPath")
+                    return@launch
+                }
+                
+                Log.d(TAG, "Loading VRM file: $vrmFilename")
+                Log.d(TAG, "VRM file path: $vrmPath")
+                Log.d(TAG, "VRM file size: ${vrmFile.length() / 1024} KB")
+                
+                // Switch to Main thread for UI operations
+                launch(Dispatchers.Main) {
+                    try {
+                        // Create ModelNode with the VRM file
+                        modelNode = ModelNode(
+                            modelFileLocation = vrmPath,
+                            scaleToUnits = 1.0f,
+                            centerOrigin = true
+                        ).apply {
+                            // Position the model in the scene
+                            position = io.github.sceneview.math.Position(0f, 0f, -2f)
+                        }
+                        
+                        // Add model to scene
+                        sceneView?.addChild(modelNode!!)
+                        
+                        Log.d(TAG, "VRM model loaded successfully: $vrmFilename")
+                        Log.d(TAG, "Model added to SceneView")
+                        
+                        // Show confirmation message
+                        showMessage("Loaded: $vrmFilename")
+                        
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error adding model to scene: ${e.message}", e)
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading VRM model: ${e.message}", e)
+            }
         }
     }
 
@@ -162,6 +245,14 @@ class FaitOverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try {
+            // Clean up 3D model resources
+            modelNode?.let {
+                sceneView?.removeChild(it)
+                Log.d(TAG, "ModelNode removed from scene")
+            }
+            modelNode = null
+            
+            // Clean up overlay view
             overlayView?.let {
                 try {
                     windowManager?.removeView(it)
@@ -171,10 +262,13 @@ class FaitOverlayService : Service() {
                 }
             }
             
+            // Nullify references
+            sceneView = null
             overlayView = null
             speechBubble = null
             windowManager = null
             params = null
+            fileRegistry = null
             
             scope.cancel()
             isInitialized = false
