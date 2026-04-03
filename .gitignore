@@ -23,3 +23,7 @@ out/
 .project
 .settings/
 gradle/wrapper/gradle-wrapper.jar
+-e 
+# Environment files
+*.env
+*.env.*

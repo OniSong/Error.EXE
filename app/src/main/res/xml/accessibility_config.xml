@@ -8,5 +8,4 @@
     android:canRequestTouchExplorationMode="false"
     android:canRequestEnhancedWebAccessibility="false"
     android:description="@string/accessibility_service_description"
-    android:notificationTimeout="100"
-    android:settingActivityName=".MainActivity" />
+    android:notificationTimeout="100" />
