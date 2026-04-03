@@ -33,8 +33,8 @@ class FaitAccessibilityService : AccessibilityService() {
                 feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
                 notificationTimeout = 100
                 flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
-                        AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-                canRetrieveWindowContent = true
+                        AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+                        AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             }
             
             setServiceInfo(info)

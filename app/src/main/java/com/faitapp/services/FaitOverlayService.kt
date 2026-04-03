@@ -197,27 +197,18 @@ class FaitOverlayService : Service() {
                 // Switch to Main thread for UI operations
                 launch(Dispatchers.Main) {
                     try {
-                        // Create ModelNode with the VRM file
-                        modelNode = ModelNode(
-                            modelFileLocation = vrmPath,
-                            scaleToUnits = 1.0f,
-                            centerOrigin = true
-                        ).apply {
-                            // Position the model in the scene
-                            position = io.github.sceneview.math.Position(0f, 0f, -2f)
-                        }
+                        // TODO: ModelNode API needs proper configuration
+                        // The sceneview 2.2.1 API requires different parameters
+                        // Temporarily disabled until proper model loading is implemented
                         
-                        // Add model to scene
-                        sceneView?.addChild(modelNode!!)
-                        
-                        Log.d(TAG, "VRM model loaded successfully: $vrmFilename")
-                        Log.d(TAG, "Model added to SceneView")
+                        Log.d(TAG, "VRM model loading temporarily disabled - API update needed")
+                        Log.d(TAG, "VRM file ready at: $vrmPath")
                         
                         // Show confirmation message
-                        showMessage("Loaded: $vrmFilename")
+                        showMessage("VRM ready: $vrmFilename")
                         
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error adding model to scene: ${e.message}", e)
+                        Log.e(TAG, "Error in model loading: ${e.message}", e)
                     }
                 }
                 
@@ -246,10 +237,7 @@ class FaitOverlayService : Service() {
         super.onDestroy()
         try {
             // Clean up 3D model resources
-            modelNode?.let {
-                sceneView?.removeChild(it)
-                Log.d(TAG, "ModelNode removed from scene")
-            }
+            // TODO: Proper sceneview cleanup when model loading is implemented
             modelNode = null
             
             // Clean up overlay view
