@@ -1,11 +1,15 @@
 package com.faitapp
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.ServiceConnection
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import com.faitapp.core.FileRegistry
 import com.faitapp.services.FaitOverlayService
 import com.faitapp.ui.PermissionDialog
 import com.faitapp.ui.SetupDialog
@@ -14,73 +18,63 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        const val VRM_PICK_REQUEST = 1001
+        const val GGUF_PICK_REQUEST = 1002
     }
+
+    // Keep a reference to the FileRegistry so handleActivityResult always has one
+    private lateinit var fileRegistry: FileRegistry
 
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             super.onCreate(savedInstanceState)
             setContentView(R.layout.activity_main)
-            
+            fileRegistry = FileRegistry(this)
             Log.d(TAG, "MainActivity created")
-            
-            // Check permission and setup
             checkPermissionsAndSetup()
-            
         } catch (e: Exception) {
-            Log.e(TAG, "Error in onCreate: ${e.message}", e)
+            Log.e(TAG, "onCreate error: ${e.message}", e)
         }
     }
-    
+
     override fun onResume() {
-        try {
-            super.onResume()
-            Log.d(TAG, "MainActivity resumed")
-            
-            // Re-check permission in case user granted it
-            if (hasOverlayPermission()) {
-                checkInitialSetup()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in onResume: ${e.message}")
-        }
-    }
-    
-    private fun checkPermissionsAndSetup() {
-        if (!hasOverlayPermission()) {
-            Log.d(TAG, "Overlay permission not granted - showing permission dialog")
-            PermissionDialog.showOverlayPermissionDialog(this) {
-                Log.d(TAG, "User opened settings for overlay permission")
-            }
-        } else {
-            Log.d(TAG, "Overlay permission already granted")
+        super.onResume()
+        if (hasOverlayPermission()) {
             checkInitialSetup()
         }
     }
-    
+
+    private fun checkPermissionsAndSetup() {
+        if (!hasOverlayPermission()) {
+            PermissionDialog.showOverlayPermissionDialog(this) {
+                Log.d(TAG, "User opened overlay settings")
+            }
+        } else {
+            checkInitialSetup()
+        }
+    }
+
     private fun checkInitialSetup() {
         val prefs = getSharedPreferences("FaitPrefs", MODE_PRIVATE)
         val setupComplete = prefs.getBoolean("setup_complete", false)
-        
+
         if (!setupComplete) {
-            Log.d(TAG, "First run - showing setup dialog")
+            // Pass 'this' so SetupDialog can use our onActivityResult
             SetupDialog.showInitialSetup(this) {
-                Log.d(TAG, "Setup complete - starting overlay service")
+                Log.d(TAG, "Setup complete — starting overlay service")
                 startOverlayService()
             }
         } else {
-            Log.d(TAG, "Setup already complete - starting overlay service")
             startOverlayService()
         }
     }
-    
+
     private fun hasOverlayPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             Settings.canDrawOverlays(this)
-        } else {
-            true // Permission not required on older Android versions
-        }
+        else true
     }
-    
+
     private fun startOverlayService() {
         try {
             val intent = Intent(this, FaitOverlayService::class.java)
@@ -90,27 +84,47 @@ class MainActivity : AppCompatActivity() {
                 startService(intent)
             }
             Log.d(TAG, "FaitOverlayService started")
-            
-            // Keep MainActivity open for now (can be minimized by user)
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting overlay service: ${e.message}", e)
-        }
-    }
-    
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        SetupDialog.handleActivityResult(this, requestCode, resultCode, data) {
-            // File selected callback - could update UI here
-            Log.d(TAG, "File selected in setup")
+            Log.e(TAG, "startOverlayService error: ${e.message}", e)
         }
     }
 
-    override fun onDestroy() {
-        try {
-            super.onDestroy()
-            Log.d(TAG, "MainActivity destroyed")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in onDestroy: ${e.message}")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (resultCode != RESULT_OK || data == null) return
+        val uri = data.data ?: return
+
+        when (requestCode) {
+            VRM_PICK_REQUEST -> {
+                Log.d(TAG, "VRM file selected: $uri")
+                val path = fileRegistry.saveVrmFile(uri)
+                if (path != null) {
+                    Log.d(TAG, "VRM saved to: $path")
+                    // Mark setup complete now that VRM is present
+                    getSharedPreferences("FaitPrefs", MODE_PRIVATE)
+                        .edit().putBoolean("setup_complete", true).apply()
+                    // Tell the running overlay service to reload the avatar
+                    sendBroadcast(Intent("com.faitapp.RELOAD_AVATAR"))
+                    // Also restart the service to pick up the new file
+                    startOverlayService()
+                } else {
+                    Log.e(TAG, "VRM save failed")
+                }
+            }
+            GGUF_PICK_REQUEST -> {
+                Log.d(TAG, "GGUF file selected: $uri")
+                val path = fileRegistry.saveGgufFile(uri)
+                if (path != null) {
+                    Log.d(TAG, "GGUF saved to: $path")
+                }
+            }
+            else -> {
+                // Delegate to SetupDialog for any other request codes it handles
+                SetupDialog.handleActivityResult(this, requestCode, resultCode, data) {
+                    Log.d(TAG, "File selected via SetupDialog")
+                }
+            }
         }
     }
 }
