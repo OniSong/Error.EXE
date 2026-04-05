@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
 
-    <!-- 3D VRM Character Rendering -->
+    <!-- 3D VRM Character Rendering — fully transparent background -->
     <io.github.sceneview.SceneView
         android:id="@+id/scene_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent" />
 
-    <!-- Speech Bubble Overlay -->
+    <!-- Speech Bubble -->
     <TextView
         android:id="@+id/speech_bubble"
         android:layout_width="wrap_content"
