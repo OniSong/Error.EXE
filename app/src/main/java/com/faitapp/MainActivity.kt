@@ -1,11 +1,8 @@
 package com.faitapp
 
-import android.content.ComponentName
 import android.content.Intent
-import android.content.ServiceConnection
 import android.os.Build
 import android.os.Bundle
-import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity

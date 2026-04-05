@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.view.Gravity
@@ -17,6 +18,7 @@ import androidx.core.app.NotificationCompat
 import com.faitapp.R
 import com.faitapp.core.FileRegistry
 import io.github.sceneview.SceneView
+import io.github.sceneview.math.Position
 import io.github.sceneview.node.ModelNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -113,43 +115,41 @@ class FaitOverlayService : Service() {
                 val vrmFilename = fileRegistry?.getVrmFileName() ?: "avatar"
 
                 if (vrmPath == null) {
-                    Log.w(TAG, "No VRM registered — waiting for file to be added")
-                    showMessage("Fait online — tap to load avatar")
+                    Log.w(TAG, "No VRM registered")
+                    showMessage("Fait online — no avatar loaded")
                     return@launch
                 }
 
                 val vrmFile = File(vrmPath)
                 if (!vrmFile.exists()) {
-                    Log.e(TAG, "VRM file missing at: $vrmPath")
+                    Log.e(TAG, "VRM file missing: $vrmPath")
                     showMessage("Avatar file missing")
                     return@launch
                 }
 
-                Log.d(TAG, "Loading VRM: $vrmFilename (${vrmFile.length() / 1024} KB)")
+                Log.d(TAG, "Loading: $vrmFilename (${vrmFile.length() / 1024} KB)")
 
                 val scene = sceneView ?: run {
-                    Log.e(TAG, "SceneView is null — cannot load model")
+                    Log.e(TAG, "SceneView null")
                     return@launch
                 }
 
-                // SceneView 2.2.1: modelLoader.loadModel(file) is a suspend function
-                // It loads the GLB/GLTF and returns a Model, then we get the instance from it
-                val model = withContext(Dispatchers.IO) {
-                    try {
-                        scene.modelLoader.loadModel(vrmFile)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "modelLoader.loadModel error: ${e.message}", e)
-                        null
-                    }
-                }
+                // SceneView 2.2.1 correct API:
+                // loadModel(fileLocation: String) is the suspend function.
+                // fileLocation must be a String — use Uri.fromFile().toString() for local files.
+                // loadModel returns Model? — then call model.instance for the ModelInstance.
+                val fileLocation = Uri.fromFile(vrmFile).toString()
+                Log.d(TAG, "File URI: $fileLocation")
+
+                val model = scene.modelLoader.loadModel(fileLocation)
 
                 if (model == null) {
-                    Log.e(TAG, "Model load returned null — file may be corrupt or unsupported")
-                    showMessage("Avatar load failed — check file format")
+                    Log.e(TAG, "loadModel returned null for: $fileLocation")
+                    showMessage("Avatar load failed")
                     return@launch
                 }
 
-                // Create ModelNode from the loaded model's instance
+                // model.instance returns the first ModelInstance of this asset
                 val instance = model.instance
                 if (instance == null) {
                     Log.e(TAG, "model.instance is null")
@@ -161,19 +161,18 @@ class FaitOverlayService : Service() {
                     try {
                         val node = ModelNode(
                             modelInstance = instance,
-                            autoAnimate = true,       // plays built-in animations automatically
-                            scaleToUnits = 1.0f,      // normalises model scale to 1m
-                            centerOrigin = io.github.sceneview.math.Position(x = 0f, y = -1f, z = 0f)
+                            autoAnimate = true,
+                            scaleToUnits = 1.0f,
+                            centerOrigin = Position(x = 0f, y = -1f, z = 0f)
                         ).apply {
-                            position = io.github.sceneview.math.Position(x = 0f, y = 0f, z = -2f)
+                            position = Position(x = 0f, y = 0f, z = -2f)
                         }
-
                         scene.addChildNode(node)
                         modelNode = node
-                        Log.d(TAG, "VRM model added to scene successfully")
+                        Log.d(TAG, "VRM loaded and added to scene ✓")
                         showMessage("Fait online ✓")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error adding ModelNode to scene: ${e.message}", e)
+                        Log.e(TAG, "addChildNode error: ${e.message}", e)
                         showMessage("Scene error: ${e.message?.take(40)}")
                     }
                 }
@@ -185,12 +184,9 @@ class FaitOverlayService : Service() {
         }
     }
 
-    /** Reload avatar after a new file is picked — called from MainActivity */
     fun reloadAvatar() {
-        modelNode?.let { node ->
-            sceneView?.removeChildNode(node)
-            modelNode = null
-        }
+        modelNode?.let { sceneView?.removeChildNode(it) }
+        modelNode = null
         loadVrmModel()
     }
 
@@ -199,7 +195,7 @@ class FaitOverlayService : Service() {
             try {
                 speechBubble?.text = message
                 speechBubble?.visibility = View.VISIBLE
-                delay(4000)
+                delay(5000)
                 speechBubble?.visibility = View.GONE
             } catch (e: Exception) {
                 Log.e(TAG, "showMessage error: ${e.message}")
@@ -210,7 +206,6 @@ class FaitOverlayService : Service() {
     private fun removeOverlayView() {
         try {
             overlayView?.let { windowManager?.removeViewImmediate(it) }
-            Log.d(TAG, "Overlay removed")
         } catch (e: Exception) {
             Log.e(TAG, "removeOverlayView error: ${e.message}")
         } finally {
@@ -224,7 +219,7 @@ class FaitOverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try {
-            Log.d(TAG, "FaitOverlayService onDestroy")
+            Log.d(TAG, "onDestroy — cleaning up")
             removeOverlayView()
             windowManager = null
             fileRegistry = null
