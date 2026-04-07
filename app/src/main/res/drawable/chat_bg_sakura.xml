@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Theme 2: Sakura Night — deep purple-navy with warm tint -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="135"
+        android:startColor="#FF0D0820"
+        android:centerColor="#FF150D28"
+        android:endColor="#FF1A0818"
+        android:type="linear" />
+</shape>

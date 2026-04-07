@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Title bar — dark with bottom separator line in neon -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#EE050508" />
+            <corners
+                android:topLeftRadius="2dp"
+                android:topRightRadius="2dp"
+                android:bottomLeftRadius="0dp"
+                android:bottomRightRadius="0dp" />
+        </shape>
+    </item>
+    <!-- Bottom neon hairline -->
+    <item android:top="34dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#6600FF9F" />
+        </shape>
+    </item>
+</layer-list>

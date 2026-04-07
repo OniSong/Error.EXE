@@ -15,6 +15,7 @@ android {
         versionName "1.0.0"
         
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "String", "HF_API_KEY", '"' + (project.findProperty("HF_API_KEY") ?: "") + '"'
     }
     
     buildTypes {
@@ -35,6 +36,7 @@ android {
     
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
     
     packagingOptions {

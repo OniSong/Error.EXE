@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- User message row — bubble left of icon, icon right -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:gravity="end"
+    android:orientation="horizontal">
+
+    <!-- Spacer -->
+    <View android:layout_width="40dp" android:layout_height="1dp" />
+
+    <!-- Bubble + name group -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="end">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:text="you"
+            android:textColor="#559B00FF"
+            android:textSize="8sp"
+            android:letterSpacing="0.15"
+            android:layout_marginBottom="2dp" />
+
+        <TextView
+            android:id="@+id/message_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bubble_user"
+            android:fontFamily="monospace"
+            android:lineSpacingMultiplier="1.4"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:textColor="@color/bubble_user_text"
+            android:textSize="11sp" />
+
+    </LinearLayout>
+
+    <!-- User icon — skull/oni symbol -->
+    <TextView
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="6dp"
+        android:layout_marginTop="2dp"
+        android:background="@drawable/icon_user_bg"
+        android:gravity="center"
+        android:text="鬼"
+        android:textSize="13sp" />
+
+</LinearLayout>
