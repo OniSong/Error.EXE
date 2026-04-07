@@ -16,12 +16,14 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Inject secrets into local.properties
+        run: |
+          echo "HF_API_KEY=${{ secrets.HF_API_KEY }}" >> local.properties
+
       - name: Build with Gradle
         run: |
-          # Remove hidden mobile carriage returns and make executable
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
-          # Run the build for the app module specifically
           ./gradlew :app:assembleDebug --stacktrace
 
       - name: Upload APK Artifact

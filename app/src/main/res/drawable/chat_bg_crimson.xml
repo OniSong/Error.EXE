@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Theme 4: Crimson Circuit — dark red-black punk -->
-<shape xmlns:android="http://schemas.android.com/apk/res/auto"
-    android:shape="rectangle"
-    xmlns:android="http://schemas.android.com/apk/res/android">
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
     <gradient
         android:angle="135"
         android:startColor="#FF0A0000"
