@@ -16,9 +16,10 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Inject secrets into local.properties
+      - name: Inject secrets into gradle.properties
         run: |
-          echo "HF_API_KEY=${{ secrets.HF_API_KEY }}" >> local.properties
+          echo "" >> gradle.properties
+          echo "HF_API_KEY=${{ secrets.HF_API_KEY }}" >> gradle.properties
 
       - name: Build with Gradle
         run: |
@@ -32,4 +33,3 @@ jobs:
           name: Error-EXE-Preview
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          
