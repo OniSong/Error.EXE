@@ -62,7 +62,7 @@ class FaitOverlayService : Service() {
         private const val HF_BASE = "https://router.huggingface.co/v1/chat/completions"
         private const val HF_MODEL = "Qwen/Qwen2.5-7B-Instruct"
         // Set your key here or inject via BuildConfig
-        private const val HF_API_KEY = "BUILD_CONFIG_HF_KEY"
+        // HF_API_KEY injected at build time via BuildConfig
 
         private val OPACITY_LEVELS = listOf(
             "α" to 0.95f,
@@ -207,7 +207,8 @@ When expressing emotion tag it in brackets at the start: [joy] [sorrow] [angry] 
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -321,7 +322,25 @@ When expressing emotion tag it in brackets at the start: [joy] [sorrow] [angry] 
     // Input
     // ──────────────────────────────────────────────────────────────
 
+    private fun setOverlayFocusable(focusable: Boolean) {
+        layoutParams?.let { params ->
+            if (focusable) {
+                params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            } else {
+                params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            }
+            try { windowManager?.updateViewLayout(overlayRoot, params) } catch (e: Exception) {}
+        }
+    }
+
     private fun setupInput() {
+        inputField?.setOnClickListener {
+            // Allow keyboard when user taps input
+            setOverlayFocusable(true)
+            inputField?.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(inputField, InputMethodManager.SHOW_IMPLICIT)
+        }
         btnSend?.setOnClickListener { submitInput() }
         btnMic?.setOnClickListener {
             // TODO: wire STT — stub for now
@@ -338,6 +357,7 @@ When expressing emotion tag it in brackets at the start: [joy] [sorrow] [angry] 
         if (text.isEmpty()) return
         inputField?.text?.clear()
         hideKeyboard()
+        setOverlayFocusable(false)  // re-lock overlay so it doesn't eat system touches
 
         addUserMessage(text)
         setStatus("thinking...", "#FFD700")
@@ -451,15 +471,15 @@ When expressing emotion tag it in brackets at the start: [joy] [sorrow] [angry] 
         }
 
     private fun getApiKey(): String {
-        // Try to read from SharedPreferences first (set via settings)
+        // 1. SharedPreferences (user-entered key via any future settings UI)
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val stored = prefs.getString("hf_api_key", null)
         if (!stored.isNullOrBlank()) return stored
-        // Fallback to BuildConfig constant (injected at build time via gradle)
-        return try {
-            val field = Class.forName("com.faitapp.BuildConfig").getField("HF_API_KEY")
-            field.get(null) as? String ?: ""
-        } catch (e: Exception) { "" }
+        // 2. BuildConfig — injected at build time from GitHub secret HF_API_KEY
+        val bc = com.faitapp.BuildConfig.HF_API_KEY
+        if (bc.isNotBlank()) return bc
+        // 3. Fallback: embedded HuggingFace key for dev testing
+        return ""
     }
 
     private fun extractEmotion(response: String): String {
